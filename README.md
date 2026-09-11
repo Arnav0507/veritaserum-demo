@@ -1,7 +1,7 @@
-# Veritaserum demo repository
+# Veritaserum demo
 
-This tiny Go project shows how Veritaserum ties `AGENTS.md` conventions to
-machine-checkable claims and CI drift detection.
+This tiny Go project shows how [Veritaserum](https://github.com/Arnav0507/Veritaserum)
+ties `AGENTS.md` conventions to machine-checkable claims and CI drift detection.
 
 ## What the context says
 
@@ -16,11 +16,9 @@ Each convention maps to a typed claim in `claims/demo.yml`.
 
 ## Try it locally
 
-From the Veritaserum repository root:
-
 ```bash
-python -m pip install .
-veritaserum check --repo examples/demo-repo
+python -m pip install "git+https://github.com/Arnav0507/Veritaserum@v0.3.0"
+veritaserum check --repo .
 ```
 
 Exit code `0` — the code matches the instructions.
@@ -30,31 +28,33 @@ Exit code `0` — the code matches the instructions.
 Apply the bundled patch to break the logging convention:
 
 ```bash
-cp -r examples/demo-repo /tmp/demo-drift
-patch -p1 -d /tmp/demo-drift < examples/demo-repo/drift.patch
-veritaserum check --repo /tmp/demo-drift
+patch -p1 < drift.patch
+veritaserum check --repo .
 ```
 
 Exit code `1` — Veritaserum reports `demo-no-printf` with evidence in `main.go`
-and anchors the SARIF result at `AGENTS.md#L5`.
+and anchors the SARIF result at `AGENTS.md#L6`.
 
-Inspect the human report or emit SARIF:
+Check only claims touched by your changes:
 
 ```bash
-veritaserum check --repo /tmp/demo-drift --format sarif --output drift.sarif
+git stash -u  # optional: save drift
+git commit -am "introduce drift"  # after applying patch
+veritaserum affected --repo . --base HEAD~1 --head HEAD
 ```
 
-## Use in GitHub Actions
+## GitHub Actions
 
-Copy `.github/workflows/veritaserum.yml` into your repository, or see
-[`action/example-workflow.yml`](../../action/example-workflow.yml) in the main
-project.
+Pull requests run [Veritaserum](https://github.com/Arnav0507/Veritaserum) via
+`.github/workflows/veritaserum.yml`:
 
-When a pull request introduces `fmt.Printf`, the action fails and uploads SARIF
-annotations on the context file line that was violated.
+1. **`check`** — full claim verification + SARIF upload
+2. **`affected`** — re-check only claims touched by the PR diff and flag stale context
+
+When a change introduces `fmt.Printf`, both steps fail on [PR #1](https://github.com/Arnav0507/veritaserum-demo/pull/1).
 
 ## Next steps
 
-- Run `veritaserum suggest --repo .` to draft additional claims from prose
+- Draft additional claims with `veritaserum suggest --repo . --context AGENTS.md`
 - Review generated YAML before committing — verification stays deterministic
 - Commit a baseline after accepting known brownfield drift
